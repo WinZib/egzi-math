@@ -17,6 +17,8 @@ public abstract class IterationMethod {
     protected DenseVector[] u;
     private volatile boolean isInterrupt = false;
 
+    private int step = 0;
+
     private Random random = new Random(System.currentTimeMillis());
 
     public IterationMethod(PlotContainer plot, Configuration configuration) {
@@ -24,7 +26,7 @@ public abstract class IterationMethod {
         this.config = configuration;
     }
 
-    private DenseVector generateU(VectorConfig vectorConfig, Func func) {
+    protected DenseVector generateU(VectorConfig vectorConfig, Func func) {
         double median = (vectorConfig.getLowEdge() + vectorConfig.getUpEdge()) / 2;
         double dispersion = (vectorConfig.getUpEdge() - vectorConfig.getLowEdge()) / 2;
 
@@ -45,21 +47,22 @@ public abstract class IterationMethod {
         return u;
     }
 
-    public final void calculate() {
-
+    private void prepare() {
         plot.clear();
         //first value
         w = DenseVector.newRandom(config.getDimension(), 100d);
-
-
-        int step = 0;
-
 
         u = new DenseVector[config.getInputVectors().size()];
         for (int i = 0; i < config.getInputVectors().size(); i++)
             u[i] = generateU(config.getInputVectors().get(i), config.getFunc());
 
         putLog(step);
+    }
+
+    public void bulkCalculate() {
+        prepare();
+
+        DenseVector[] w_n = new DenseVector[u.length];
 
         while (compareWithError(config.getClearW(), w, config.getEpsilon())) {
             if (isInterrupt)
@@ -68,15 +71,19 @@ public abstract class IterationMethod {
             for (int i = 0; i < config.getInputVectors().size(); i++)
                 u[i] = generateU(config.getInputVectors().get(i), config.getFunc());
 
-            int i = step % w.getSize();
+            for (int i = 0; i < u.length; i++) {
+                //generate outputNoize
+                Double outputNoize = config.getOutputNoize().generate(
+                        config.getOutputNoizeMedian(),
+                        config.getOutputNoizeDispersion());
 
-            //generate outputNoize
-            Double outputNoize = config.getOutputNoize().generate(config.getOutputNoizeMedian(), config.getOutputNoizeDispersion());
+                Double y_n = config.getClearY() != null ? (config.getClearY().at(i) + outputNoize) :
+                        config.getClearW().dotProduct(u[i]) + outputNoize;
 
-            y_n = config.getClearY() != null ? (config.getClearY().at(i) + outputNoize) :
-                    config.getClearW().dotProduct(u[i]) + outputNoize;
+                w_n[i] = iteration(y_n, u[i]);
+            }
 
-            iteration(y_n, i);
+            w = w.add(DenseVector.average(w_n));
 
             putLog(++step);
 
@@ -97,11 +104,52 @@ public abstract class IterationMethod {
         System.out.println("Epsilon: " + calcError(config.getClearW(), w));
     }
 
-    private boolean compareWithError(DenseVector w_, DenseVector w, double error) {
+    public void calculate() {
+        prepare();
+
+        while (compareWithError(config.getClearW(), w, config.getEpsilon())) {
+            if (isInterrupt)
+                break;
+
+            for (int i = 0; i < config.getInputVectors().size(); i++)
+                u[i] = generateU(config.getInputVectors().get(i), config.getFunc());
+
+            int i = step % w.getSize();
+
+            //generate outputNoize
+            Double outputNoize = config.getOutputNoize().generate(config.getOutputNoizeMedian(), config.getOutputNoizeDispersion());
+
+            y_n = config.getClearY() != null ? (config.getClearY().at(i) + outputNoize) :
+                    config.getClearW().dotProduct(u[i]) + outputNoize;
+
+            w = w.add(iteration(y_n, u[i]));
+
+            putLog(++step);
+
+            if (step % 10000 == 0) {
+                System.out.println("---------------------------------------------");
+                System.out.println("Iteration: " + step);
+                System.out.println("Current value: " + w);
+                System.out.println("Current Epsilon: " + calcError(config.getClearW(), w));
+            }
+
+            if (step > config.getMaxIterationCount())
+                break;
+        }
+        System.out.println("------------------------------------------------------");
+        System.out.println("--------------------FINAL RESULT----------------------");
+        System.out.println("------------------------------------------------------");
+        System.out.println(w);
+        System.out.println("Epsilon: " + calcError(config.getClearW(), w));
+    }
+
+
+
+    protected boolean compareWithError(DenseVector w_, DenseVector w, double error) {
         return calcError(w_, w) > error;
     }
 
-    private double calcError(DenseVector w_, DenseVector w) {
+    protected double calcError(DenseVector w_, DenseVector w) {
         if (w_ != null) return w_.substract(w).norm();
 
         Double result = 0.;
@@ -112,7 +160,7 @@ public abstract class IterationMethod {
         return Math.sqrt(result / config.getClearY().getSize());
     }
 
-    private void putLog(int step) {
+    protected void putLog(int step) {
         if (config.getClearW() != null) {
             plot.add((double)step, config.getClearW().substract(w).norm());
             return;
@@ -126,10 +174,14 @@ public abstract class IterationMethod {
         plot.add((double) step, Math.sqrt(result / config.getClearY().getSize()));
     }
 
+
     public void interrupt() {
         isInterrupt = true;
     }
 
+    public boolean isInterrupt() {
+        return isInterrupt;
+    }
 
-    abstract void iteration(double y_n, int step);
+    abstract DenseVector iteration(double y_n, DenseVector u);
 }

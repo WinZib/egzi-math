@@ -6,7 +6,6 @@ import org.egzi.model.CustomTableModel;
 import org.egzi.ui.MainWindow;
 import org.egzi.ui.PlotContainer;
 import org.egzi.ui.PlotContainerImpl;
-import org.jfree.ui.tabbedui.VerticalLayout;
 
 import javax.swing.*;
 import java.awt.*;
@@ -128,7 +127,7 @@ public class Main {
         startButton.addActionListener(e -> executor.submit(() -> {
             try {
                 currentMethod = new Kaczmarz(plot, buildConfiguration());
-                currentMethod.calculate();
+                currentMethod.bulkCalculate();
             } catch (Exception exc) {
                 exc.printStackTrace();
                 JOptionPane.showMessageDialog(main, exc.getMessage());
@@ -143,7 +142,7 @@ public class Main {
         root.add(active);
 
         //add table
-        JPanel tablePane = new JPanel(new GridLayout(3,1));
+        JPanel tablePane = new JPanel(new GridLayout(3, 1));
         final JTable table = new JTable(tableModel);
 
         final JComboBox<GenType> distrType = new JComboBox<>();
@@ -158,16 +157,16 @@ public class Main {
         JScrollPane scrollPane = new JScrollPane(table);
         tablePane.add(scrollPane);
 
-        final JButton addButton = new JButton("add");
+        final JButton addButton = new JButton("Add");
         addButton.addActionListener(e -> tableModel.newRow());
-        addButton.setPreferredSize(new Dimension(40, 5));
         tablePane.add(addButton);
 
-        final JButton deleteButton = new JButton("delete");
+        final JButton deleteButton = new JButton("Delete");
         deleteButton.addActionListener(e -> tableModel.removeRow(table.getSelectedRow()));
-        deleteButton.setPreferredSize(new Dimension(40, 5));
         tablePane.add(deleteButton);
+
         root.add(tablePane);
+
         main.add(root);
 
         main.pack();

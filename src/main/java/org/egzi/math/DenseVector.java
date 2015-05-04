@@ -183,6 +183,18 @@ public class DenseVector {
         return this;
     }
 
+    public static DenseVector average(DenseVector[] vectors) {
+        int dimension = vectors[0].getSize();
+        Double[] data = new Double[dimension];
+        Arrays.fill(data, 0.);
+        for (int i = 0; i < dimension; i++) {
+            for (int j = 0; j < vectors.length; j++)
+                data[i] += vectors[j].at(i);
+            data[i] = data[i] / (double)vectors.length;
+        }
+        return new DenseVector(data);
+    }
+
     public static DenseVector newGaussian(int dimension, double median, double dispersion) {
         Random r = new Random(System.currentTimeMillis());
         Double[] result = new Double[dimension];

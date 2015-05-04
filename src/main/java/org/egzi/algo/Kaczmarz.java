@@ -1,5 +1,6 @@
 package org.egzi.algo;
 
+import org.egzi.math.DenseVector;
 import org.egzi.ui.PlotContainer;
 
 public class Kaczmarz extends IterationMethod {
@@ -9,9 +10,9 @@ public class Kaczmarz extends IterationMethod {
         super(plot, configuration);
     }
 
-    protected void iteration(double y_n, int i) {
-        double temp = config.getGamma() * (y_n - u[i].dotProduct(w)) / (config.getMu() + u[i].dotProduct(u[i]));
+    protected DenseVector iteration(double y_n, DenseVector u) {
+        double temp = config.getGamma() * (y_n - u.dotProduct(w)) / (config.getMu() + u.dotProduct(u));
 
-        w = w.add(u[i].multiply(temp));
+        return u.multiply(temp);
     }
 }
